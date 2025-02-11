@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>订阅源格式转换工具</title>
+    <style>
+        body { max-width: 800px; margin: 20px auto; padding: 20px; }
+        textarea { width: 100%; height: 300px; margin: 10px 0; }
+        button { padding: 10px 20px; background: #4CAF50; color: white; border: none; cursor: pointer; }
+        .container { display: flex; flex-direction: column; gap: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>格式转换工具</h2>
+        <textarea id="input" placeholder="粘贴格式一的内容"></textarea>
+        <button onclick="convert()">转换为格式二 →</button>
+        <textarea id="output" placeholder="转换结果将显示在这里"></textarea>
+        <button onclick="copyResult()">复制结果</button>
+    </div>
+
+    <script>
+        function convert() {
+            try {
+                const input = document.getElementById('input').value;
+                const jsonString = input.match(/<JSON>(.*?)<\/JSON>/s)[1];
+                const data = JSON.parse(jsonString);
+                
+                const result = {
+                    author: data.author,
+                    name: data.title,
+                    version: data.version.toString(),
+                    subscriptions: data.groups.map(group => ({
+                        category: group.title,
+                        engines: group.ruleArrayList.map(engine => ({
+                            name: engine.title,
+                            url: engine.url.replace(/\\u003d/g, '=')
+                        }))
+                    }))
+                };
+
+                const output = `window.subscriptionData = ${JSON.stringify(result, null, 4)
+                    .replace(/"([^"]+)":/g, '$1:')
+                    .replace(/"/g, '\'')};`;
+                
+                document.getElementById('output').value = output;
+            } catch (e) {
+                alert('转换失败，请检查输入格式是否正确');
+            }
+        }
+
+        function copyResult() {
+            const output = document.getElementById('output');
+            output.select();
+            document.execCommand('copy');
+        }
+    </script>
+</body>
+</html>

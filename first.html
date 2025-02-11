@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>订阅源可视化编辑器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* 基本样式 */
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+        }
+        .category, .engine {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+        .category-header, .engine-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .category-header input, .engine-header input {
+            width: 80%;
+            padding: 5px;
+        }
+        button {
+            padding: 5px 10px;
+            margin: 5px 0;
+        }
+        .engine-list {
+            margin-top: 10px;
+        }
+        .engine-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .engine-item input {
+            width: 45%;
+            padding: 5px;
+        }
+        @media (max-width: 600px) {
+            /* 移动端优化 */
+            .category-header input, .engine-header input,
+            .engine-item input {
+                width: 100%;
+                margin-bottom: 5px;
+            }
+            .engine-item {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>订阅源可视化编辑器</h1>
+    <div>
+        <label for="author">作者名字:</label>
+        <input type="text" id="author" value="作者名字">
+    </div>
+    <div>
+        <label for="name">订阅源名称:</label>
+        <input type="text" id="name" value="订阅源名称">
+    </div>
+    <div>
+        <label for="version">版本:</label>
+        <input type="text" id="version" value="1.0">
+    </div>
+    <hr>
+    <div id="categories-container">
+        <!-- 类别及其引擎将动态生成 -->
+    </div>
+    <button id="add-category">添加类别</button>
+    <hr>
+    <button id="export-data">导出订阅数据</button>
+
+    <script>
+        // 初始数据
+        window.subscriptionData = {
+            author: '作者名字',
+            name: '订阅源名称',
+            version: '1.0',
+            subscriptions: [
+                {
+                    category: '影视',
+                    engines: [
+                        {
+                            name: '八号影视',
+                            url: 'https://www.bahaotv.com/vodsearch/-------------.html?wd={keyword}'
+                        },
+                        {
+                            name: '秀儿影视',
+                            url: 'https://xiuer.pro/vod/search/?wd={keyword}'
+                        }
+                    ]
+                },
+                {
+                    category: '音乐',
+                    engines: [
+                        {
+                            name: '网易云音乐',
+                            url: 'https://music.163.com/search?keywords={keyword}'
+                        },
+                        {
+                            name: 'QQ 音乐',
+                            url: 'https://y.qq.com/y/static/search/search.html?w={keyword}'
+                        }
+                    ]
+                }
+            ]
+        };
+
+        // DOM 元素
+        const authorInput = document.getElementById('author');
+        const nameInput = document.getElementById('name');
+        const versionInput = document.getElementById('version');
+        const categoriesContainer = document.getElementById('categories-container');
+        const addCategoryBtn = document.getElementById('add-category');
+        const exportBtn = document.getElementById('export-data');
+
+        // 初始化编辑器
+        function initEditor() {
+            // 填充基本信息
+            authorInput.value = window.subscriptionData.author;
+            nameInput.value = window.subscriptionData.name;
+            versionInput.value = window.subscriptionData.version;
+
+            // 填充类别
+            window.subscriptionData.subscriptions.forEach((category, index) => {
+                addCategory(category.category, category.engines, index);
+            });
+        }
+
+        // 添加类别
+        function addCategory(categoryName = '', engines = [], index = null) {
+            const categoryDiv = document.createElement('div');
+            categoryDiv.className = 'category';
+
+            const categoryHeader = document.createElement('div');
+            categoryHeader.className = 'category-header';
+
+            const categoryInput = document.createElement('input');
+            categoryInput.type = 'text';
+            categoryInput.placeholder = '类别名称';
+            categoryInput.value = categoryName;
+
+            const deleteCategoryBtn = document.createElement('button');
+            deleteCategoryBtn.textContent = '删除类别';
+            deleteCategoryBtn.onclick = () => {
+                categoriesContainer.removeChild(categoryDiv);
+                updateSubscriptionData();
+            };
+
+            categoryHeader.appendChild(categoryInput);
+            categoryHeader.appendChild(deleteCategoryBtn);
+            categoryDiv.appendChild(categoryHeader);
+
+            // 引擎列表
+            const engineList = document.createElement('div');
+            engineList.className = 'engine-list';
+
+            engines.forEach(engine => {
+                addEngine(engineList, engine.name, engine.url);
+            });
+
+            categoryDiv.appendChild(engineList);
+
+            // 添加引擎按钮
+            const addEngineBtn = document.createElement('button');
+            addEngineBtn.textContent = '添加引擎';
+            addEngineBtn.onclick = () => {
+                addEngine(engineList);
+                updateSubscriptionData();
+            };
+            categoryDiv.appendChild(addEngineBtn);
+
+            categoriesContainer.appendChild(categoryDiv);
+
+            // 监听类别名称变化
+            categoryInput.oninput = () => {
+                updateSubscriptionData();
+            };
+        }
+
+        // 添加引擎
+        function addEngine(engineList, name = '', url = '') {
+            const engineItem = document.createElement('div');
+            engineItem.className = 'engine-item';
+
+            const nameInput = document.createElement('input');
+            nameInput.type = 'text';
+            nameInput.placeholder = '引擎名称';
+            nameInput.value = name;
+
+            const urlInput = document.createElement('input');
+            urlInput.type = 'text';
+            urlInput.placeholder = '搜索 URL (使用 {keyword} 作为关键词占位符)';
+            urlInput.value = url;
+
+            const deleteEngineBtn = document.createElement('button');
+            deleteEngineBtn.textContent = '删除';
+            deleteEngineBtn.onclick = () => {
+                engineList.removeChild(engineItem);
+                updateSubscriptionData();
+            };
+
+            // 监听引擎名称和 URL 变化
+            nameInput.oninput = () => {
+                updateSubscriptionData();
+            };
+            urlInput.oninput = () => {
+                updateSubscriptionData();
+            };
+
+            engineItem.appendChild(nameInput);
+            engineItem.appendChild(urlInput);
+            engineItem.appendChild(deleteEngineBtn);
+
+            engineList.appendChild(engineItem);
+        }
+
+        // 更新 subscriptionData 对象
+        function updateSubscriptionData() {
+            const author = authorInput.value.trim();
+            const name = nameInput.value.trim();
+            const version = versionInput.value.trim();
+            const subscriptions = [];
+
+            const categoryDivs = document.querySelectorAll('.category');
+            categoryDivs.forEach(categoryDiv => {
+                const categoryName = categoryDiv.querySelector('.category-header input').value.trim();
+                if (categoryName === '') return;
+
+                const engines = [];
+                const engineItems = categoryDiv.querySelectorAll('.engine-item');
+                engineItems.forEach(engineItem => {
+                    const engineName = engineItem.querySelector('input[type="text"]:nth-child(1)').value.trim();
+                    const engineUrl = engineItem.querySelector('input[type="text"]:nth-child(2)').value.trim();
+                    if (engineName && engineUrl) {
+                        engines.push({ name: engineName, url: engineUrl });
+                    }
+                });
+
+                if (engines.length > 0) {
+                    subscriptions.push({ category: categoryName, engines });
+                }
+            });
+
+            window.subscriptionData = {
+                author,
+                name,
+                version,
+                subscriptions
+            };
+        }
+
+        // 添加类别按钮事件
+        addCategoryBtn.onclick = () => {
+            addCategory();
+        };
+
+        // 导出订阅数据
+        exportBtn.onclick = () => {
+            updateSubscriptionData();
+            const dataStr = "data:text/javascript;charset=utf-8," + encodeURIComponent('window.subscriptionData = ' + JSON.stringify(window.subscriptionData, null, 4) + ';');
+            const downloadAnchor = document.createElement('a');
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", "subscriptionData.js");
+            document.body.appendChild(downloadAnchor); // Required for Firefox
+            downloadAnchor.click();
+            downloadAnchor.remove();
+        };
+
+        // 初始化编辑器
+        initEditor();
+    </script>
+</body>
+</html>
