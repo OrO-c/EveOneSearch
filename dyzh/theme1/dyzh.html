@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>订阅源编辑器</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+            padding: 0;
+            background-color: #f4f4f4;
+            color: #333;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2 {
+            text-align: center;
+            color: #007bff;
+            margin-bottom: 20px;
+        }
+
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 20px;
+            margin-bottom: 20px;
+        }
+
+        .header > div {
+            flex-grow: 1;
+            min-width: calc(50% - 10px); /* 考虑到 gap */
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .rounded-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box; /* 防止 padding 增加元素宽度 */
+            font-size: 16px;
+        }
+
+        #subscriptions-list {
+            margin-bottom: 20px;
+        }
+
+        .category-item {
+            background-color: #eee;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border-left: 5px solid #007bff;
+        }
+
+        .category-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .category-header h3 {
+            margin: 0;
+            font-size: 1.2em;
+        }
+
+        .engine-item {
+            background-color: #ddd;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 3px;
+            display: flex;
+            flex-direction: column; /* 使引擎内的元素垂直排列 */
+            gap: 10px;
+        }
+
+        .engine-item > div {
+            width: 100%; /* 让内部 div 占据整个宽度 */
+        }
+
+        .engine-item label {
+            font-size: 0.9em;
+            margin-bottom: 3px;
+            display: block; /* 让 label 独占一行 */
+        }
+
+        .small-input, .engine-ua-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-family: sans-serif;
+            resize: vertical;
+            min-height: 30px;
+        }
+
+        .rounded-button {
+            padding: 10px 15px;
+            border: none;
+            color: white;
+            border-radius: 20px; /* 圆角 */
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            margin-right: 5px;
+        }
+
+        .rounded-button.primary {
+            background-color: #007bff;
+        }
+
+        .rounded-button.success {
+            background-color: #28a745;
+        }
+
+        .rounded-button.danger {
+            background-color: #dc3545;
+        }
+
+        .rounded-button.secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+
+        .rounded-button:hover {
+            opacity: 0.85;
+        }
+
+        .actions {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        #json-output {
+            background-color: #eee;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+
+        .category-actions, .engine-actions {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+            margin-top: 10px; /* 将引擎操作按钮放在一行 */
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        @media (max-width: 480px) {
+            .header > div {
+                min-width: 100%;
+            }
+            .rounded-button {
+                font-size: 14px;
+                padding: 8px 12px;
+            }
+            .engine-item {
+                flex-direction: column; /* 在小屏幕上仍然垂直排列 */
+                align-items: stretch; /* 让输入框拉伸以适应宽度 */
+            }
+            .engine-actions {
+                flex-wrap: wrap; /* 允许按钮在空间不足时换行 */
+                justify-content: flex-start; /* 左对齐按钮 */
+            }
+            .engine-actions button {
+                margin-bottom: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>订阅源编辑器</h1>
+
+        <div class="header">
+            <div>
+                <label for="author">作者:</label>
+                <input type="text" id="author" class="rounded-input">
+            </div>
+            <div>
+                <label for="name">名称:</label>
+                <input type="text" id="name" class="rounded-input">
+            </div>
+            <div>
+                <label for="version">版本:</label>
+                <input type="text" id="version" class="rounded-input">
+            </div>
+        </div>
+
+        <h2>订阅列表</h2>
+        <div id="subscriptions-list">
+            </div>
+
+        <button id="add-category-btn" class="rounded-button primary">添加分类</button>
+
+        <h2>JSON 数据 (只读)</h2>
+        <pre id="json-output"></pre>
+
+        <div class="actions">
+            <button id="save-btn" class="rounded-button success">保存数据</button>
+            <button id="reset-btn" class="rounded-button danger">重置数据</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            let subscriptionData = window.subscriptionData || {
+                author: '作者名字',
+                name: '订阅源名称',
+                version: '1.0',
+                subscriptions: [
+                    {
+                        category: '影视',
+                        engines: [
+                            { name: '八号影视', url: 'https://www.bahaotv.com/vodsearch/-------------.html?wd={keyword}', ua: '' },
+                            { name: '秀儿影视', url: 'https://xiuer.pro/vod/search/?wd={keyword}', ua: 'Mozilla/5.0 (Linux; Android 10; SM-G960F Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.198 Mobile Safari/537.36' }
+                        ]
+                    },
+                    {
+                        category: '音乐',
+                        engines: [
+                            { name: '网易云音乐', url: 'https://music.163.com/search?keywords={keyword}', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1' },
+                            { name: 'QQ 音乐', url: 'https://y.qq.com/y/static/search/search.html?w={keyword}', ua: '' }
+                        ]
+                    }
+                ]
+            };
+
+            const authorInput = document.getElementById('author');
+            const nameInput = document.getElementById('name');
+            const versionInput = document.getElementById('version');
+            const subscriptionsList = document.getElementById('subscriptions-list');
+            const addCategoryBtn = document.getElementById('add-category-btn');
+            const jsonOutput = document.getElementById('json-output');
+            const saveBtn = document.getElementById('save-btn');
+            const resetBtn = document.getElementById('reset-btn');
+
+            // 初始化编辑器
+            function initializeEditor() {
+                authorInput.value = subscriptionData.author;
+                nameInput.value = subscriptionData.name;
+                versionInput.value = subscriptionData.version;
+                renderSubscriptions();
+                updateJsonOutput();
+            }
+
+            // 渲染订阅列表
+            function renderSubscriptions() {
+                subscriptionsList.innerHTML = '';
+                subscriptionData.subscriptions.forEach((categoryData, categoryIndex) => {
+                    const categoryDiv = document.createElement('div');
+                    categoryDiv.classList.add('category-item');
+
+                    const categoryHeader = document.createElement('div');
+                    categoryHeader.classList.add('category-header');
+                    const categoryTitle = document.createElement('h3');
+                    categoryTitle.textContent = categoryData.category || '未命名分类';
+                    categoryHeader.appendChild(categoryTitle);
+
+                    const categoryActions = document.createElement('div');
+                    categoryActions.classList.add('category-actions');
+                    const editCategoryBtn = document.createElement('button');
+                    editCategoryBtn.textContent = '编辑';
+                    editCategoryBtn.classList.add('rounded-button', 'secondary', 'edit-category-btn');
+                    editCategoryBtn.addEventListener('click', () => editCategory(categoryIndex));
+                    categoryActions.appendChild(editCategoryBtn);
+
+                    const addEngineBtn = document.createElement('button');
+                    addEngineBtn.textContent = '添加引擎';
+                    addEngineBtn.classList.add('rounded-button', 'primary', 'add-engine-btn');
+                    addEngineBtn.addEventListener('click', () => addEngine(categoryIndex));
+                    categoryActions.appendChild(addEngineBtn);
+
+                    const deleteCategoryBtn = document.createElement('button');
+                    deleteCategoryBtn.textContent = '删除';
+                    deleteCategoryBtn.classList.add('rounded-button', 'danger', 'delete-category-btn');
+                    deleteCategoryBtn.addEventListener('click', () => deleteCategory(categoryIndex));
+                    categoryActions.appendChild(deleteCategoryBtn);
+
+                    categoryHeader.appendChild(categoryActions);
+                    categoryDiv.appendChild(categoryHeader);
+
+                    categoryData.engines.forEach((engine, engineIndex) => {
+                        const engineDiv = document.createElement('div');
+                        engineDiv.classList.add('engine-item');
+
+                        // 引擎名称
+                        const nameContainer = document.createElement('div');
+                        const nameLabel = document.createElement('label');
+                        nameLabel.textContent = '引擎名称:';
+                        const nameInput = document.createElement('input');
+                        nameInput.type = 'text';
+                        nameInput.classList.add('small-input', 'engine-name-input');
+                        nameInput.value = engine.name;
+                        nameInput.addEventListener('blur', () => updateEngineProperty(categoryIndex, engineIndex, 'name', nameInput.value));
+                        nameContainer.appendChild(nameLabel);
+                        nameContainer.appendChild(nameInput);
+                        engineDiv.appendChild(nameContainer);
+
+                        // 引擎 URL
+                        const urlContainer = document.createElement('div');
+                        const urlLabel = document.createElement('label');
+                        urlLabel.textContent = '引擎 URL:';
+                        const urlInput = document.createElement('input');
+                        urlInput.type = 'text';
+                        urlInput.classList.add('small-input', 'engine-url-input');
+                        urlInput.value = engine.url;
+                        urlInput.addEventListener('blur', () => updateEngineProperty(categoryIndex, engineIndex, 'url', urlInput.value));
+                        urlContainer.appendChild(urlLabel);
+                        urlContainer.appendChild(urlInput);
+                        engineDiv.appendChild(urlContainer);
+
+                        // 引擎 User-Agent
+                        const uaContainer = document.createElement('div');
+                        const uaLabel = document.createElement('label');
+                        uaLabel.textContent = 'User-Agent:';
+                        const uaInput = document.createElement('textarea'); // 使用 textarea 允许更长的 UA 字符串
+                        uaInput.classList.add('small-input', 'engine-ua-input');
+                        uaInput.value = engine.ua || '';
+                        uaInput.rows = 2; // 设置默认显示 2 行
+                        uaInput.addEventListener('blur', () => updateEngineProperty(categoryIndex, engineIndex, 'ua', uaInput.value));
+                        uaContainer.appendChild(uaLabel);
+                        uaContainer.appendChild(uaInput);
+                        engineDiv.appendChild(uaContainer);
+
+                        const engineActions = document.createElement('div');
+                        engineActions.classList.add('engine-actions');
+                        const deleteEngineBtn = document.createElement('button');
+                        deleteEngineBtn.textContent = '删除';
+                        deleteEngineBtn.classList.add('rounded-button', 'danger', 'delete-engine-btn');
+                        deleteEngineBtn.addEventListener('click', () => deleteEngine(categoryIndex, engineIndex));
+                        engineActions.appendChild(deleteEngineBtn);
+                        engineDiv.appendChild(engineActions);
+
+                        categoryDiv.appendChild(engineDiv);
+                    });
+
+                    subscriptionsList.appendChild(categoryDiv);
+                });
+            }
+
+            // 编辑分类 (弹出输入框修改分类名称)
+            function editCategory(index) {
+                const currentCategoryName = subscriptionData.subscriptions[index].category || '';
+                const newCategoryName = prompt('编辑分类名称:', currentCategoryName);
+                if (newCategoryName !== null) {
+                    subscriptionData.subscriptions[index].category = newCategoryName.trim() || '未命名分类';
+                    renderSubscriptions();
+                    updateJsonOutput();
+                }
+            }
+
+            // 添加分类
+            addCategoryBtn.addEventListener('click', () => {
+                const newCategoryName = prompt('输入新的分类名称:', '新建分类');
+                if (newCategoryName !== null) {
+                    subscriptionData.subscriptions.push({ category: newCategoryName.trim() || '未命名分类', engines: [] });
+                    renderSubscriptions();
+                    updateJsonOutput();
+                }
+            });
+
+            // 添加引擎到分类
+            function addEngine(categoryIndex) {
+                subscriptionData.subscriptions[categoryIndex].engines.push({ name: '新引擎', url: '', ua: '' });
+                renderSubscriptions();
+                updateJsonOutput();
+            }
+
+            // 更新引擎属性 (重构以处理所有引擎属性的更新)
+            function updateEngineProperty(categoryIndex, engineIndex, property, value) {
+                subscriptionData.subscriptions[categoryIndex].engines[engineIndex][property] = value.trim();
+                updateJsonOutput();
+            }
+
+            // 删除分类
+            function deleteCategory(index) {
+                if (confirm('确定要删除此分类吗？')) {
+                    subscriptionData.subscriptions.splice(index, 1);
+                    renderSubscriptions();
+                    updateJsonOutput();
+                }
+            }
+
+            // 删除引擎
+            function deleteEngine(categoryIndex, engineIndex) {
+                if (confirm('确定要删除此引擎吗？')) {
+                    subscriptionData.subscriptions[categoryIndex].engines.splice(engineIndex, 1);
+                    renderSubscriptions();
+                    updateJsonOutput();
+                }
+            }
+
+            // 更新 JSON 输出
+            function updateJsonOutput() {
+                jsonOutput.textContent = JSON.stringify(subscriptionData, null, 2);
+            }
+
+            // 保存数据
+            saveBtn.addEventListener('click', () => {
+                subscriptionData.author = authorInput.value.trim();
+                subscriptionData.name = nameInput.value.trim();
+                subscriptionData.version = versionInput.value.trim();
+                window.subscriptionData = subscriptionData;
+                updateJsonOutput();
+                alert('数据已更新 (当前只更新了内存中的 window.subscriptionData)。');
+            });
+
+            // 重置数据到初始状态
+            resetBtn.addEventListener('click', () => {
+                if (confirm('确定要重置所有数据吗？所有未保存的更改将会丢失。')) {
+                    subscriptionData = {
+                        author: '作者名字',
+                        name: '订阅源名称',
+                        version: '1.0',
+                        subscriptions: [
+                            {
+                                category: '影视',
+                                engines: [
+                                    { name: '八号影视', url: 'https://www.bahaotv.com/vodsearch/-------------.html?wd={keyword}', ua: '' },
+                                    { name: '秀儿影视', url: 'https://xiuer.pro/vod/search/?wd={keyword}', ua: 'Mozilla/5.0 (Linux; Android 10; SM-G960F Build/QP1A.190711.020; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/86.0.4240.198 Mobile Safari/537.36' }
+                                ]
+                            },
+                            {
+                                category: '音乐',
+                                engines: [
+                                    { name: '网易云音乐', url: 'https://music.163.com/search?keywords={keyword}', ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1' },
+                                    { name: 'QQ 音乐', url: 'https://y.qq.com/y/static/search/search.html?w={keyword}', ua: '' }
+                                ]
+                            }
+                        ]
+                    };
+                    initializeEditor();
+                }
+            });
+
+            // 初始化编辑器加载数据
+            initializeEditor();
+        });
+    </script>
+</body>
+</html>
