@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <title>订阅源互转器（保留奇妙搜索完整数据）</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+      line-height: 1.6;
+    }
+    textarea {
+      width: 100%;
+      height: 250px;
+      font-family: monospace;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    label {
+      margin-right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>订阅源双向转换器</h1>
+  <p>请选择转换方向并粘贴数据：</p>
+  <label>
+    <input type="radio" name="direction" value="1to2" checked> 奇妙搜索订阅 → Atous订阅
+  </label>
+  <label>
+    <input type="radio" name="direction" value="2to1"> Atous订阅 → 奇妙搜索订阅
+  </label>
+  <br><br>
+  <textarea id="input" placeholder="粘贴数据，支持奇妙搜索（含 <JSON> 标签）或Atous搜索的数据"></textarea>
+  <br>
+  <button id="convertBtn">转换</button>
+  
+  <h2>转换结果</h2>
+  <textarea id="output" readonly placeholder="转换后的数据将在此显示"></textarea>
+  
+  <script>
+    document.getElementById("convertBtn").addEventListener("click", function() {
+      const direction = document.querySelector('input[name="direction"]:checked').value;
+      const inputText = document.getElementById("input").value.trim();
+      let outputText = "";
+      
+      if (direction === "1to2") {
+        // 奇妙搜索订阅 → Atous订阅
+        let jsonString = inputText;
+        // 如果包含 <JSON> 标签，则去除标签部分
+        if (jsonString.startsWith("<JSON>") && jsonString.endsWith("</JSON>")) {
+          jsonString = jsonString.substring(6, jsonString.length - 7).trim();
+        }
+        try {
+          // 原始的奇妙搜索数据
+          const originalData = JSON.parse(jsonString);
+          // 造Atous搜索数据
+          const newData = {
+            author: originalData.author || "",
+            name: originalData.title || "",
+            version: originalData.version ? originalData.version.toString() : "",
+            subscriptions: []
+          };
+          if (originalData.groups && Array.isArray(originalData.groups)) {
+            originalData.groups.forEach(group => {
+              const subscription = {
+                category: group.title || "",
+                engines: []
+              };
+              if (group.ruleArrayList && Array.isArray(group.ruleArrayList)) {
+                group.ruleArrayList.forEach(rule => {
+                  subscription.engines.push({
+                    name: rule.title || "",
+                    url: rule.url || ""
+                  });
+                });
+              }
+              newData.subscriptions.push(subscription);
+            });
+          }
+          // 为保证奇妙搜索能获得所有数据，
+          // 将原始奇妙搜索数据以注释形式嵌入输出中
+          outputText = "/* 原始奇妙搜索订阅数据\n<JSON>" + JSON.stringify(originalData, null, 2) + "</JSON>\n*/\n" +
+                       "window.subscriptionData = " + JSON.stringify(newData, null, 2) + ";";
+        } catch (e) {
+          alert("奇妙搜索订阅数据解析错误，请检查输入！");
+          return;
+        }
+      } else if (direction === "2to1") {
+        // Atous订阅 → 奇妙搜索订阅
+        let jsonString = "";
+        // 优先尝试从注释中提取原始奇妙搜索订阅数据
+        const commentRegex = /<JSON>([\s\S]*?)<\/JSON>/;
+        const commentMatch = inputText.match(commentRegex);
+        if (commentMatch) {
+          jsonString = commentMatch[1].trim();
+        } else {
+          // 若没有嵌入原始数据，则从 window.subscriptionData 提取Atous订阅数据
+          jsonString = inputText;
+          // 去除 window.subscriptionData = 前缀及末尾分号
+          const assignIndex = jsonString.indexOf("=");
+          if (assignIndex !== -1) {
+            jsonString = jsonString.substring(assignIndex + 1).trim();
+          }
+          if (jsonString.endsWith(";")) {
+            jsonString = jsonString.slice(0, -1).trim();
+          }
+          // 此时只有Atous订阅数据，后续生成的格式一数据将缺失部分原始信息
+        }
+        try {
+          const data = JSON.parse(jsonString);
+          // 如果来源是通过注释提取，则直接输出完整的奇妙搜索数据（加上 <JSON> 包裹）
+          if (commentMatch) {
+            outputText = "<JSON>" + JSON.stringify(data, null, 2) + "</JSON>";
+          } else {
+            // 若没有原始数据，则需要构造奇妙搜索订阅数据（无法恢复缺失的原始字段，只能使用默认值）
+            const newData = {
+              author: data.author || "",
+              authorID: "",
+              groups: [],
+              title: data.name || "",
+              updatetime: Date.now(),
+              url: "",
+              version: data.version ? parseInt(data.version) || 1 : 1
+            };
+            if (data.subscriptions && Array.isArray(data.subscriptions)) {
+              let groupCounter = 0;
+              let ruleCounter = 1;
+              data.subscriptions.forEach(subscription => {
+                const groupObj = {
+                  authorID: "",
+                  groupID: "",
+                  ruleArrayList: [],
+                  sort: groupCounter,
+                  title: subscription.category || "",
+                  baseObjId: 0
+                };
+                if (subscription.engines && Array.isArray(subscription.engines)) {
+                  subscription.engines.forEach((engine, index) => {
+                    const ruleObj = {
+                      author: data.author || "",
+                      authorID: "",
+                      cookie: "",
+                      groupID: "",
+                      groupTitle: subscription.category || "",
+                      header: "",
+                      id: ruleCounter,
+                      referer: "",
+                      ruleID: "",
+                      sort: index,
+                      title: engine.name || "",
+                      ua: "",
+                      updatetime: Date.now(),
+                      url: engine.url || "",
+                      baseObjId: 0
+                    };
+                    groupObj.ruleArrayList.push(ruleObj);
+                    ruleCounter++;
+                  });
+                }
+                newData.groups.push(groupObj);
+                groupCounter++;
+              });
+            }
+            outputText = "<JSON>" + JSON.stringify(newData, null, 2) + "</JSON>";
+          }
+        } catch (e) {
+          alert("Atous订阅数据解析错误，请检查输入！");
+          return;
+        }
+      }
+      
+      document.getElementById("output").value = outputText;
+    });
+  </script>
+</body>
+</html>
