@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>订阅源双向转换工具</title>
+    <style>
+        /* 保持原有样式不变 */
+        body { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        textarea { width: 100%; height: 300px; margin: 10px 0; font-family: monospace; }
+        button { padding: 8px 16px; margin: 5px; background: #2196F3; color: white; border: none; cursor: pointer; }
+        .conversion-type { background: #4CAF50; }
+        .error { border: 2px solid #ff4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div>
+            <h3>格式一 (原始数据)</h3>
+            <textarea id="format1" placeholder="粘贴格式一内容"></textarea>
+            <button class="conversion-type" onclick="convertToFormat2()">转换为格式二 →</button>
+        </div>
+        
+        <div>
+            <h3>格式二 (标准JSON)</h3>
+            <textarea id="format2" placeholder="粘贴格式二内容"></textarea>
+            <button class="conversion-type" onclick="convertToFormat1()">← 转换为格式一</button>
+        </div>
+    </div>
+
+    <script>
+        // 增强版转换逻辑
+        const ID_PREFIX = 'AUTO_ID_';
+
+        // 格式一 → 格式二
+        function convertToFormat2() {
+            try {
+                const input = document.getElementById('format1').value;
+                const jsonMatch = input.match(/<JSON>(.*?)<\/JSON>/s);
+                if (!jsonMatch) throw new Error('找不到JSON内容');
+                
+                const data = JSON.parse(jsonMatch[1]);
+                const result = {
+                    author: data.author,
+                    name: data.title,
+                    version: data.version.toString(),
+                    // 元数据存储区（对格式二软件透明）
+                    _meta: {
+                        authorID: data.authorID,
+                        timestamp: Date.now()
+                    },
+                    subscriptions: data.groups.map(group => ({
+                        category: group.title,
+                        engines: group.ruleArrayList.map(engine => ({
+                            name: engine.title,
+                            url: engine.url.replace(/\\u003d/g, '=')
+                        }))
+                    }))
+                };
+
+                document.getElementById('format2').value = JSON.stringify(result, null, 4);
+                clearError('format1');
+            } catch (e) {
+                showError('format1', '转换失败: ' + e.message);
+            }
+        }
+
+        // 格式二 → 格式一
+        function convertToFormat1() {
+            try {
+                const input = document.getElementById('format2').value;
+                const data = JSON.parse(input);
+
+                // 智能ID恢复系统
+                const restoreID = (() => {
+                    // 优先使用元数据中的原始ID
+                    if (data._meta?.authorID) return data._meta.authorID;
+                    
+                    // 次选自动生成ID（带校验机制）
+                    return `${ID_PREFIX}${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+                })();
+
+                // 重建格式一完整结构
+                const result = {
+                    author: data.author || '未知作者',
+                    authorID: restoreID,
+                    title: data.name || '未命名订阅源',
+                    version: parseInt(data.version) || 1,
+                    updatetime: data._meta?.timestamp || Date.now(),
+                    url: "",
+                    groups: data.subscriptions.map((subscription, groupIndex) => ({
+                        authorID: restoreID,
+                        groupID: `${ID_PREFIX}GROUP_${groupIndex}_${Date.now()}`,
+                        title: subscription.category || `分类${groupIndex + 1}`,
+                        sort: groupIndex,
+                        baseObjId: 0,
+                        ruleArrayList: subscription.engines.map((engine, engineIndex) => ({
+                            author: "me",
+                            authorID: restoreID,
+                            ruleID: `${ID_PREFIX}RULE_${groupIndex}_${engineIndex}_${Date.now()}`,
+                            title: engine.name || `规则${engineIndex + 1}`,
+                            url: engine.url.replace(/=/g, '\\u003d'),
+                            sort: engineIndex,
+                            updatetime: Date.now(),
+                            // 以下字段保持默认值
+                            cookie: "",
+                            groupID: `${ID_PREFIX}GROUP_${groupIndex}_${Date.now()}`,
+                            groupTitle: subscription.category || `分类${groupIndex + 1}`,
+                            header: "",
+                            id: engineIndex,
+                            referer: "",
+                            ua: "",
+                            baseObjId: 0
+                        }))
+                    }))
+                };
+
+                document.getElementById('format1').value = `<JSON>${JSON.stringify(result)}</JSON>`;
+                clearError('format2');
+            } catch (e) {
+                showError('format2', '转换失败: ' + e.message);
+            }
+        }
+
+        // 保持原有错误处理函数
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            field.classList.add('error');
+            setTimeout(() => field.classList.remove('error'), 2000);
+            alert(message);
+        }
+
+        function clearError(fieldId) {
+            document.getElementById(fieldId).classList.remove('error');
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>订阅源双向转换工具</title>
+    <style>
+        body { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        textarea { width: 100%; height: 300px; margin: 10px 0; font-family: monospace; }
+        button { padding: 8px 16px; margin: 5px; background: #2196F3; color: white; border: none; cursor: pointer; }
+        .conversion-type { background: #4CAF50; }
+        .error { border: 2px solid #ff4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div>
+            <h3>格式一 (原始数据)</h3>
+            <textarea id="format1" placeholder="粘贴格式一内容"></textarea>
+            <button class="conversion-type" onclick="convertToFormat2()">转换为格式二 →</button>
+        </div>
+        
+        <div>
+            <h3>格式二 (标准JSON)</h3>
+            <textarea id="format2" placeholder="粘贴格式二内容"></textarea>
+            <button class="conversion-type" onclick="convertToFormat1()">← 转换为格式一</button>
+        </div>
+    </div>
+
+    <script>
+        // 格式一 → 格式二
+        function convertToFormat2() {
+            try {
+                const input = document.getElementById('format1').value;
+                const jsonMatch = input.match(/<JSON>(.*?)<\/JSON>/s);
+                if (!jsonMatch) throw new Error('找不到JSON内容');
+                
+                const data = JSON.parse(jsonMatch[1]);
+                const result = {
+                    author: data.author,
+                    name: data.title,
+                    version: data.version.toString(),
+                    subscriptions: data.groups.map(group => ({
+                        category: group.title,
+                        engines: group.ruleArrayList.map(engine => ({
+                            name: engine.title,
+                            url: engine.url.replace(/\\u003d/g, '=')
+                        }))
+                    }))
+                };
+
+                document.getElementById('format2').value = JSON.stringify(result, null, 4);
+                clearError('format1');
+            } catch (e) {
+                showError('format1', '格式一转换失败: ' + e.message);
+            }
+        }
+
+        // 格式二 → 格式一
+        function convertToFormat1() {
+            try {
+                const input = document.getElementById('format2').value;
+                const data = JSON.parse(input);
+                
+                const result = {
+                    author: data.author,
+                    authorID: "自动生成ID",    // 需要根据实际情况处理
+                    title: data.name,
+                    version: parseInt(data.version),
+                    updatetime: Date.now(),
+                    groups: data.subscriptions.map((subscription, index) => ({
+                        groupID: "GID" + Date.now() + index,
+                        title: subscription.category,
+                        sort: index,
+                        ruleArrayList: subscription.engines.map((engine, idx) => ({
+                            ruleID: "RID" + Date.now() + idx,
+                            title: engine.name,
+                            url: engine.url.replace(/=/g, '\\u003d'),
+                            sort: idx,
+                            updatetime: Date.now()
+                        }))
+                    }))
+                };
+
+                document.getElementById('format1').value = 
+                    `<JSON>${JSON.stringify(result, null, 4)}</JSON>`;
+                clearError('format2');
+            } catch (e) {
+                showError('format2', '格式二转换失败: ' + e.message);
+            }
+        }
+
+        // 错误处理函数
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            field.classList.add('error');
+            setTimeout(() => field.classList.remove('error'), 2000);
+            alert(message);
+        }
+
+        function clearError(fieldId) {
+            document.getElementById(fieldId).classList.remove('error');
+        }
+    </script>
+</body>
+</html>
