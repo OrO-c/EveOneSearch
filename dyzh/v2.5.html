@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>订阅源双向转换工具</title>
+    <style>
+        body { max-width: 1000px; margin: 20px auto; padding: 20px; }
+        .container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        textarea { width: 100%; height: 300px; margin: 10px 0; font-family: monospace; }
+        button { padding: 8px 16px; margin: 5px; background: #2196F3; color: white; border: none; cursor: pointer; }
+        .conversion-type { background: #4CAF50; }
+        .error { border: 2px solid #ff4444; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div>
+            <h3>格式一 (原始数据)</h3>
+            <textarea id="format1" placeholder="粘贴格式一内容"></textarea>
+            <button class="conversion-type" onclick="convertToFormat2()">转换为格式二 →</button>
+        </div>
+        
+        <div>
+            <h3>格式二 (标准JSON)</h3>
+            <textarea id="format2" placeholder="粘贴格式二内容"></textarea>
+            <button class="conversion-type" onclick="convertToFormat1()">← 转换为格式一</button>
+        </div>
+    </div>
+
+    <script>
+        // 格式一 → 格式二
+        function convertToFormat2() {
+            try {
+                const input = document.getElementById('format1').value;
+                const jsonMatch = input.match(/<JSON>(.*?)<\/JSON>/s);
+                if (!jsonMatch) throw new Error('找不到JSON内容');
+                
+                const format1Data = JSON.parse(jsonMatch[1]);
+
+                // 构建格式二
+                const format2Data = {
+                    author: format1Data.author,
+                    name: format1Data.title,
+                    version: format1Data.version.toString(),
+                    subscriptions: format1Data.groups.map(group => ({
+                        category: group.title,
+                        engines: group.ruleArrayList.map(engine => ({
+                            name: engine.title,
+                            url: engine.url.replace(/\\u003d/g, '=')
+                        }))
+                    })),
+                    // 将格式一的完整数据嵌入到 _meta 字段
+                    _meta: {
+                        format1: format1Data
+                    }
+                };
+
+                // 在格式二开头加上 "window.subscriptionData = {"
+                const format2Output = `window.subscriptionData = ${JSON.stringify(format2Data, null, 4)}`;
+                document.getElementById('format2').value = format2Output;
+                clearError('format1');
+            } catch (e) {
+                showError('format1', '格式一转换失败: ' + e.message);
+            }
+        }
+
+        // 格式二 → 格式一
+        function convertToFormat1() {
+            try {
+                const input = document.getElementById('format2').value;
+                // 去掉开头的 "window.subscriptionData = "，只提取 JSON 部分
+                const jsonString = input.replace(/^window\.subscriptionData\s*=\s*/, '');
+                const format2Data = JSON.parse(jsonString);
+
+                // 如果 _meta 字段存在且包含 format1 数据，则直接使用
+                if (format2Data._meta?.format1) {
+                    document.getElementById('format1').value = `<JSON>${JSON.stringify(format2Data._meta.format1)}</JSON>`;
+                } else {
+                    // 否则，根据格式二的数据重建格式一
+                    const format1Data = {
+                        author: format2Data.author,
+                        authorID: "自动生成ID",
+                        title: format2Data.name,
+                        version: parseInt(format2Data.version),
+                        updatetime: Date.now(),
+                        url: "",
+                        groups: format2Data.subscriptions.map((subscription, groupIndex) => ({
+                            authorID: "自动生成ID",
+                            groupID: `自动生成GROUPID_${groupIndex}`,
+                            title: subscription.category,
+                            sort: groupIndex,
+                            baseObjId: 0,
+                            ruleArrayList: subscription.engines.map((engine, engineIndex) => ({
+                                author: "me",
+                                authorID: "自动生成ID",
+                                ruleID: `自动生成RULEID_${engineIndex}`,
+                                title: engine.name,
+                                url: engine.url.replace(/=/g, '\\u003d'),
+                                sort: engineIndex,
+                                updatetime: Date.now(),
+                                cookie: "",
+                                groupID: `自动生成GROUPID_${groupIndex}`,
+                                groupTitle: subscription.category,
+                                header: "",
+                                id: engineIndex,
+                                referer: "",
+                                ua: "",
+                                baseObjId: 0
+                            }))
+                        }))
+                    };
+
+                    document.getElementById('format1').value = `<JSON>${JSON.stringify(format1Data)}</JSON>`;
+                }
+
+                clearError('format2');
+            } catch (e) {
+                showError('format2', '格式二转换失败: ' + e.message);
+            }
+        }
+
+        // 错误处理函数
+        function showError(fieldId, message) {
+            const field = document.getElementById(fieldId);
+            field.classList.add('error');
+            setTimeout(() => field.classList.remove('error'), 2000);
+            alert(message);
+        }
+
+        function clearError(fieldId) {
+            document.getElementById(fieldId).classList.remove('error');
+        }
+    </script>
+</body>
+</html>
