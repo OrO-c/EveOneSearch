@@ -5,6 +5,9 @@
 在奇妙搜索中导入订阅地址:<https://eos.oroc.top/EveOneSearch.txt>
 ## 贡献方式
 如果你想向EOS项目中加入一个网站，你可以通过创建Issue的方式填写，但不能存在**法律禁止的内容**，否则不予添加
+## 交流群
+一起来交流群玩耍吧!
+Q群号：434601092
 ## 贡献者
 [OrO-c](https://github.com/OrO-c/ "@OrO-c")
 那狗吧
